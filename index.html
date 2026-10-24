@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A guided cyclic-sighing breathing game. Hold your thumb down as the tide rises, lift it as the tide goes out.">
+<meta name="theme-color" content="#1d4f68">
+<title>Tide Breath</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: one column; a dawn seascape canvas is the hero and the touch surface. Single soft dawn look by choice. */
+:root{
+  --mist:#e9f0f3; --ink:#1f3442; --muted:#5f7684; --sea:#2f6f8f; --sea-deep:#1d4f68;
+  --coral:#e58a6e; --foam:#f7fafb; --line:rgba(31,52,66,.14); --good:#3c8a6a;
+  --display:"Gloock", Georgia, "Times New Roman", serif;
+  --body:"Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme:light;
+}
+html,body{height:100%}
+body{background:var(--mist); color:var(--ink); font-family:var(--body); font-size:16px; line-height:1.5;
+  padding-left:max(16px, env(safe-area-inset-left,0px)); padding-right:max(16px, env(safe-area-inset-right,0px));
+  -webkit-tap-highlight-color:transparent}
+.app{max-width:540px; margin:0 auto; padding-block:18px 32px; display:flex; flex-direction:column; gap:16px; box-sizing:border-box}
+h1,h2,h3{font-family:var(--display); font-weight:400; margin:0; text-wrap:balance}
+h1{font-size:2.5rem; line-height:1.05}
+h2{font-size:1.6rem; line-height:1.15}
+p{margin:0}
+.muted{color:var(--muted)}
+.label{font-size:.72rem; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); font-weight:700}
+.screen{display:flex; flex-direction:column; gap:16px}
+.stack{display:flex; flex-direction:column; gap:10px}
+.steps{display:grid; grid-template-columns:auto 1fr; gap:10px 14px; align-items:center}
+.steps .ph{font-family:var(--display); font-size:1.05rem; color:var(--sea-deep); white-space:nowrap; font-variant-numeric:tabular-nums}
+.choice,.feel{display:grid; gap:6px}
+.choice{grid-template-columns:repeat(3,1fr)}
+.feel{grid-template-columns:repeat(5,1fr)}
+.choice button,.feel button{appearance:none; border:2px solid var(--line); background:#fff; color:var(--ink); border-radius:14px; font:inherit; cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; gap:4px; line-height:1.2}
+.choice button{padding:12px 6px}
+.choice button .n{font-family:var(--display); font-size:1.5rem}
+.choice button small{font-size:.75rem; color:var(--muted)}
+.feel button{padding:10px 4px; font-size:.8rem}
+.feel button .n{font-family:var(--display); font-size:1.3rem}
+.choice button[aria-pressed="true"],.feel button[aria-pressed="true"]{border-color:var(--sea); background:#dfeef4}
+.btn{appearance:none; border:0; border-radius:999px; padding:14px 24px; font:inherit; font-weight:700; font-size:1rem; cursor:pointer; background:var(--sea-deep); color:#fff}
+.btn.ghost{background:transparent; color:var(--ink); border:2px solid var(--line); font-weight:400}
+.btn.small{padding:8px 16px; font-size:.9rem}
+.btn:disabled{opacity:.4; cursor:default}
+.row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+:focus-visible{outline:3px solid var(--coral); outline-offset:3px}
+
+/* Play */
+.hud{display:flex; justify-content:space-between; align-items:flex-end; gap:10px; font-variant-numeric:tabular-nums}
+.hud > div{display:flex; flex-direction:column; gap:2px}
+.hud .v{font-family:var(--display); font-size:1.5rem; line-height:1}
+.hud .mid{align-items:center}
+.hud .r{align-items:flex-end}
+.sea{position:relative; height:min(64dvh, 560px); min-height:380px; border-radius:26px; overflow:hidden; touch-action:none;
+  user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; background:#c9dbe6}
+.sea canvas{display:block; width:100%; height:100%}
+.cue{position:absolute; left:0; right:0; top:16%; text-align:center; padding-inline:20px; pointer-events:none}
+.cue .big{font-family:var(--display); font-size:1.7rem; line-height:1.15; color:var(--ink); text-shadow:0 1px 12px rgba(255,255,255,.7)}
+.cue .act{margin-top:6px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; font-size:.78rem; color:var(--sea-deep)}
+.thumb{position:absolute; left:50%; bottom:22px; transform:translateX(-50%); width:84px; height:84px; border-radius:50%;
+  border:3px solid rgba(255,255,255,.85); display:flex; align-items:center; justify-content:center; text-align:center;
+  font-size:.72rem; font-weight:700; color:#fff; letter-spacing:.04em; pointer-events:none; transition:background .2s, transform .2s}
+.thumb.down{background:rgba(255,255,255,.28); transform:translateX(-50%) scale(1.08)}
+.thumb.want{border-color:#fff; box-shadow:0 0 0 6px rgba(255,255,255,.25)}
+.thumb.lift{border-style:dashed; border-color:rgba(255,255,255,.6)}
+.thumb.wrong{border-color:var(--coral); box-shadow:0 0 0 6px rgba(229,138,110,.35)}
+.nudge{position:absolute; left:16px; right:16px; top:42%; text-align:center; font-family:var(--display); font-size:1.25rem; color:var(--foam);
+  text-shadow:0 1px 8px rgba(0,0,0,.35); opacity:0; transition:opacity .5s; pointer-events:none}
+.nudge.show{opacity:1}
+.overlay{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; text-align:center;
+  padding:24px; background:rgba(233,240,243,.9)}
+.overlay p{max-width:30ch}
+
+/* Results */
+.stats{display:grid; grid-template-columns:repeat(2,1fr); gap:10px}
+.stats > div{background:#fff; border:2px solid var(--line); border-radius:16px; padding:12px 14px; display:flex; flex-direction:column; gap:2px}
+.stats .v{font-family:var(--display); font-size:1.7rem; line-height:1.1; font-variant-numeric:tabular-nums}
+.chart{background:#fff; border:2px solid var(--line); border-radius:16px; padding:12px 14px; display:flex; flex-direction:column; gap:8px}
+.bars{display:flex; align-items:flex-end; gap:2px; height:90px; border-bottom:1px solid var(--line)}
+.bars i{flex:1; min-width:0; border-radius:3px 3px 0 0; background:#a9c3cf}
+.bars i.ok{background:var(--sea)}
+.axis{display:flex; justify-content:space-between; font-size:.72rem; color:var(--muted); font-variant-numeric:tabular-nums}
+.hist{display:flex; flex-direction:column; gap:6px; font-size:.9rem; font-variant-numeric:tabular-nums}
+.hist div{display:flex; justify-content:space-between; gap:10px; border-bottom:1px solid var(--line); padding-bottom:6px}
+details.sci{border:2px solid var(--line); border-radius:16px; padding:14px 16px; background:#fff}
+details.sci summary{cursor:pointer; font-family:var(--display); font-size:1.15rem; list-style:none; display:flex; justify-content:space-between; align-items:center; gap:10px}
+details.sci summary::-webkit-details-marker{display:none}
+details.sci summary::after{content:"+"; color:var(--muted); font-family:var(--body); font-size:1.3rem}
+details.sci[open] summary::after{content:"–"}
+.sci-list{display:flex; flex-direction:column; gap:14px; margin-top:12px}
+.sci-item{display:flex; flex-direction:column; gap:6px; padding-top:12px; border-top:1px solid var(--line)}
+.sci-item .game{color:var(--sea-deep); font-size:.78rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase}
+.sci-item .lim{color:var(--muted); font-size:.9rem}
+.sci-item .cite{font-size:.8rem; color:var(--muted)}
+.sci-item a{color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Intro -->
+  <section class="screen" id="intro">
+    <div class="label">Stress Balls · Game 3</div>
+    <h1>Tide Breath</h1>
+    <p>Breathe with the tide. Hold your thumb on the water while the tide comes in, and lift it as the tide goes out. Each breath is a cyclic sigh: two breaths in, one long breath out.</p>
+    <div class="steps">
+      <span class="ph">3 sec</span><span><b>Tide rises.</b> Thumb down. Slow breath in through your nose.</span>
+      <span class="ph">1 sec</span><span><b>A little higher.</b> Keep holding. One more short sip of air to fill up.</span>
+      <span class="ph">6 sec</span><span><b>Tide goes out.</b> Lift your thumb. Slow, long breath out through your mouth.</span>
+    </div>
+    <div class="stack">
+      <div class="label">How long?</div>
+      <div class="choice" id="lenChoice"></div>
+    </div>
+    <div class="stack">
+      <div class="label">Before you start, how do you feel?</div>
+      <div class="feel" id="feelPre"></div>
+    </div>
+    <div class="row">
+      <button class="btn" id="startBtn">Start breathing</button>
+      <button class="btn ghost" id="skipBtn">Skip the question</button>
+    </div>
+    <details class="sci"><summary>The science behind it</summary><div class="sci-list"></div></details>
+  </section>
+
+  <!-- Play -->
+  <section class="screen" id="play" hidden>
+    <div class="hud">
+      <div><span class="label">Breath</span><span class="v" id="hBreath">1</span></div>
+      <div class="mid"><span class="label">In sync</span><span class="v" id="hSync">–</span></div>
+      <div class="r"><span class="label">Time left</span><span class="v" id="hTime">5:00</span></div>
+    </div>
+    <div class="sea" id="sea">
+      <canvas id="cv"></canvas>
+      <div class="cue"><div class="big" id="cueBig">Breathe in</div><div class="act" id="cueAct">Thumb down</div></div>
+      <div class="nudge" id="nudge"></div>
+      <div class="thumb" id="thumb">HOLD<br>HERE</div>
+      <div class="overlay" id="overlay" hidden></div>
+    </div>
+    <div class="row" style="justify-content:space-between">
+      <button class="btn ghost small" id="muteBtn" aria-pressed="false">Wave sound on</button>
+      <button class="btn ghost small" id="stopBtn">End early</button>
+    </div>
+  </section>
+
+  <!-- Feel after -->
+  <section class="screen" id="after" hidden>
+    <div class="label">The tide is out</div>
+    <h2>How do you feel now?</h2>
+    <div class="feel" id="feelPost"></div>
+    <div class="row"><button class="btn" id="seeBtn" disabled>See my session</button></div>
+  </section>
+
+  <!-- Results -->
+  <section class="screen" id="results" hidden>
+    <div class="label">Your session</div>
+    <h2 id="rHead">Nicely done.</h2>
+    <p id="rFeel"></p>
+    <div class="stats">
+      <div><span class="label">Minutes</span><span class="v" id="rMin">0</span></div>
+      <div><span class="label">Breaths</span><span class="v" id="rBreaths">0</span></div>
+      <div><span class="label">In sync</span><span class="v" id="rSync">0%</span></div>
+      <div><span class="label">Best run</span><span class="v" id="rRun">0</span></div>
+    </div>
+    <div class="chart">
+      <div class="label">Sync by breath</div>
+      <div class="bars" id="rBars"></div>
+      <div class="axis"><span>First breath</span><span>Last breath</span></div>
+      <p class="muted" style="font-size:.85rem">In sync is the share of time your thumb matched the tide: down while it rose, up while it fell. Dark bars were breaths at 80% or better. Best run is your longest streak of those breaths in a row.</p>
+    </div>
+    <p class="muted" id="rNote"></p>
+    <div class="row"><button class="btn" id="againBtn">Breathe again</button></div>
+    <details class="sci"><summary>The science behind it</summary><div class="sci-list"></div></details>
+    <div class="stack" id="histWrap" hidden>
+      <div class="label">Recent sessions on this phone</div>
+      <div class="hist" id="hist"></div>
+      <p class="muted" style="font-size:.8rem">Saved in this browser only. Clearing browsing data erases it.</p>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function(){
+const FEELS = ["Very tense","Tense","Okay","Calm","Very calm"];
+const LENGTHS = [{m:2, note:"quick"},{m:3, note:"short"},{m:5, note:"study length"}];
+const PHASES = [
+  {dur:3, from:0,   to:.78, hold:true,  big:"Breathe in through your nose", act:"Thumb down"},
+  {dur:1, from:.78, to:1,   hold:true,  big:"One more sip of air",          act:"Keep holding"},
+  {dur:6, from:1,   to:0,   hold:false, big:"Slowly out through your mouth", act:"Lift your thumb"}
+];
+const CYCLE = 10, GRACE = 0.4;
+const PRAISE = ["Smooth.","Right with the tide.","That's the rhythm.","Easy and slow.","Nice long breath out.","You've got it."];
+const NUDGES = ["Come back to the water. Thumb down as it rises.","Let the thoughts drift. Just follow the tide.","Easy. Find the next wave."];
+const SCIENCE = [
+  {game:"Cyclic sighing",
+   find:"In a month-long trial, people did 5 minutes a day of one breathing exercise or mindfulness meditation. Cyclic sighing, which is two breaths in through the nose then a long slow breath out, raised good mood the most and slowed resting breathing rate more than meditation. It lowered anxiety about as much as meditation did.",
+   lim:"108 people, mostly students. It was a small exploratory trial and was not pre-registered. The benefit grew with more days of practice, so one session is a smaller dose than the study tested.",
+   cite:"Balban et al. (2023), Cell Reports Medicine, 4(1), 100895",
+   url:"https://pmc.ncbi.nlm.nih.gov/articles/PMC9873947"},
+  {game:"The 5-minute option",
+   find:"The trial used 5 minutes a day, so the 5-minute choice here matches what was studied. The 2 and 3 minute options are shorter than anything the trial tested.",
+   lim:"The exact timing in this game (3 seconds in, 1 second top-up, 6 seconds out) is a choice made here. The study asked for a long exhale but did not set exact seconds.",
+   cite:"Balban et al. (2023), Cell Reports Medicine",
+   url:"https://pmc.ncbi.nlm.nih.gov/articles/PMC9873947"}
+];
+const $ = id => document.getElementById(id);
+const sea = $('sea'), cv = $('cv'), ctx = cv.getContext('2d'), overlay = $('overlay'), nudgeEl = $('nudge');
+let S, raf = 0, W = 0, H = 0, dpr = 1, audio = null, noise = null, muted = false, minutes = 5;
+
+function reset(){
+  S = {pre:S?S.pre:null, post:null, phase:'intro', t:0, last:0, paused:true, down:false, breaths:[], cur:{good:0,total:0,touched:false},
+       breathIdx:0, phaseIdx:-1, nudges:0, lastNudgeAt:-99, ended:false};
+}
+reset();
+
+// science panels
+document.querySelectorAll('details.sci .sci-list').forEach(list=>{
+  list.innerHTML = '<p class="muted" style="font-size:.9rem">The breathing pattern comes from a published trial. This game itself has not been tested in a study.</p>' +
+    SCIENCE.map(s=>'<div class="sci-item"><span class="game">'+s.game+'</span><p>'+s.find+'</p><p class="lim">Limit: '+s.lim+'</p><p class="cite"><a href="'+s.url+'" target="_blank" rel="noopener">'+s.cite+'</a></p></div>').join('');
+});
+
+function show(id){ ['intro','play','after','results'].forEach(s => $(s).hidden = s!==id); window.scrollTo(0,0); }
+
+function buildFeel(el, onPick){
+  el.innerHTML = '';
+  FEELS.forEach((f,i)=>{
+    const b = document.createElement('button'); b.type='button'; b.setAttribute('aria-pressed','false');
+    b.innerHTML = '<span class="n">'+(i+1)+'</span><span>'+f+'</span>';
+    b.onclick = ()=>{ [...el.children].forEach(c=>c.setAttribute('aria-pressed','false')); b.setAttribute('aria-pressed','true'); onPick(i+1); };
+    el.appendChild(b);
+  });
+}
+buildFeel($('feelPre'), v=>{ S.pre = v; });
+(function(){
+  const el = $('lenChoice');
+  LENGTHS.forEach(L=>{
+    const b = document.createElement('button'); b.type='button'; b.setAttribute('aria-pressed', L.m===minutes);
+    b.innerHTML = '<span class="n">'+L.m+'</span><span>min</span><small>'+L.note+'</small>';
+    b.onclick = ()=>{ minutes = L.m; [...el.children].forEach(c=>c.setAttribute('aria-pressed','false')); b.setAttribute('aria-pressed','true'); };
+    el.appendChild(b);
+  });
+})();
+
+/* ---------- canvas ---------- */
+function resize(){
+  const r = sea.getBoundingClientRect(); dpr = Math.min(2, window.devicePixelRatio||1);
+  W = r.width; H = r.height; cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+const ease = p => p<.5 ? 2*p*p : 1 - Math.pow(-2*p+2, 2)/2;
+
+function breathState(t){
+  const ct = t % CYCLE; let acc = 0;
+  for(let i=0;i<PHASES.length;i++){
+    const ph = PHASES[i];
+    if(ct < acc + ph.dur){ const p = (ct-acc)/ph.dur; return {i, ph, p, into:ct-acc, level: ph.from + (ph.to-ph.from)*ease(p)}; }
+    acc += ph.dur;
+  }
+  const ph = PHASES[2]; return {i:2, ph, p:1, into:ph.dur, level:0};
+}
+
+function draw(level, time){
+  // sky
+  const sky = ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0, '#c9d9e8'); sky.addColorStop(.55, '#f3d3c2'); sky.addColorStop(1, '#f6e2d3');
+  ctx.fillStyle = sky; ctx.fillRect(0,0,W,H);
+  // sun
+  const sunY = H*.42 - level*H*.04;
+  const g = ctx.createRadialGradient(W*.72, sunY, 4, W*.72, sunY, 70);
+  g.addColorStop(0,'rgba(255,214,170,.95)'); g.addColorStop(.35,'rgba(240,160,120,.55)'); g.addColorStop(1,'rgba(240,160,120,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(W*.72, sunY, 70, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#f6b48f'; ctx.beginPath(); ctx.arc(W*.72, sunY, 18, 0, Math.PI*2); ctx.fill();
+  // sand
+  ctx.fillStyle = '#e8cfb2'; ctx.fillRect(0, H*.86, W, H*.14);
+  // water: level 0 = low tide, 1 = high tide
+  const base = H*(0.84 - 0.56*level);
+  const layers = [
+    {amp:9,  len:220, spd:.35, col:'rgba(47,111,143,.55)', off:-10},
+    {amp:7,  len:160, spd:-.5, col:'rgba(29,79,104,.75)',  off:6},
+    {amp:5,  len:120, spd:.7,  col:'#1d4f68',             off:22}
+  ];
+  layers.forEach((L,k)=>{
+    ctx.beginPath(); ctx.moveTo(0, H);
+    for(let x=0; x<=W+8; x+=8){
+      const y = base + L.off + Math.sin(x/L.len*Math.PI*2 + time*L.spd*2) * L.amp + Math.sin(x/(L.len*.47) + time*L.spd*3.1)*L.amp*.35;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(W, H); ctx.closePath(); ctx.fillStyle = L.col; ctx.fill();
+    if(k===0){
+      ctx.beginPath();
+      for(let x=0; x<=W+8; x+=8){
+        const y = base + L.off + Math.sin(x/L.len*Math.PI*2 + time*L.spd*2) * L.amp + Math.sin(x/(L.len*.47) + time*L.spd*3.1)*L.amp*.35;
+        x===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+      }
+      ctx.strokeStyle = 'rgba(247,250,251,.85)'; ctx.lineWidth = 2.5; ctx.stroke();
+    }
+  });
+  // sun glitter on water
+  ctx.fillStyle = 'rgba(255,230,205,.5)';
+  for(let i=0;i<6;i++){
+    const y = base + 30 + i*14; if(y > H) break;
+    const w = 40 - i*5 + Math.sin(time*2+i)*6;
+    ctx.fillRect(W*.72 - w/2, y, w, 2);
+  }
+}
+
+/* ---------- audio: soft surf that swells with the tide ---------- */
+function initAudio(){
+  try{
+    audio = audio || new (window.AudioContext||window.webkitAudioContext)();
+    if(audio.state==='suspended') audio.resume();
+    if(!noise){
+      const len = audio.sampleRate*2, buf = audio.createBuffer(1, len, audio.sampleRate), d = buf.getChannelData(0);
+      let last = 0; for(let i=0;i<len;i++){ const w = Math.random()*2-1; last = (last + 0.02*w)/1.02; d[i] = last*3.5; }
+      const src = audio.createBufferSource(); src.buffer = buf; src.loop = true;
+      const lp = audio.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 500;
+      const gain = audio.createGain(); gain.gain.value = 0;
+      src.connect(lp); lp.connect(gain); gain.connect(audio.destination); src.start();
+      noise = {lp, gain};
+    }
+  }catch(e){ audio = null; }
+}
+function setSurf(level){
+  if(!noise || !audio) return;
+  const target = muted || S.paused ? 0 : 0.05 + 0.22*level;
+  noise.gain.gain.setTargetAtTime(target, audio.currentTime, 0.15);
+  noise.lp.frequency.setTargetAtTime(350 + 900*level, audio.currentTime, 0.2);
+}
+$('muteBtn').onclick = ()=>{ muted = !muted; $('muteBtn').textContent = muted ? 'Wave sound off' : 'Wave sound on'; $('muteBtn').setAttribute('aria-pressed', muted); };
+function buzz(ms){ try{ navigator.vibrate && navigator.vibrate(ms); }catch(e){} }
+
+/* ---------- touch ---------- */
+function setDown(v){ S.down = v; if(v) S.cur.touched = true; updateThumb(); }
+// The button label follows the tide, and turns coral when your thumb doesn't match it
+function updateThumb(){
+  const el = $('thumb');
+  if(S.phase!=='play' || S.paused || S.phaseIdx < 0){
+    el.innerHTML = 'HOLD<br>HERE'; el.className = 'thumb' + (S.down ? ' down' : ''); return;
+  }
+  const ph = PHASES[S.phaseIdx];
+  let label;
+  if(ph.hold) label = S.down ? (S.phaseIdx===1 ? 'KEEP<br>HOLDING' : 'BREATHE<br>IN') : 'HOLD<br>NOW';
+  else label = S.down ? 'LET<br>GO' : 'BREATHE<br>OUT';
+  const into = breathState(S.t).into;
+  const cls = 'thumb' + (S.down ? ' down' : '') + (ph.hold ? ' want' : ' lift') + (S.down !== ph.hold && into >= GRACE ? ' wrong' : '');
+  if(el.innerHTML !== label) el.innerHTML = label;
+  if(el.className !== cls) el.className = cls;
+}
+sea.addEventListener('pointerdown', e=>{ if(e.target.closest('.overlay')) return; e.preventDefault(); try{ sea.setPointerCapture(e.pointerId); }catch(_){} setDown(true); });
+['pointerup','pointercancel','lostpointercapture'].forEach(ev=>sea.addEventListener(ev, ()=>setDown(false)));
+sea.addEventListener('contextmenu', e=>e.preventDefault());
+
+/* ---------- loop ---------- */
+function fmt(s){ s = Math.max(0, Math.ceil(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function flashNudge(text, ms){ nudgeEl.textContent = text; nudgeEl.classList.add('show'); clearTimeout(flashNudge.t); flashNudge.t = setTimeout(()=>nudgeEl.classList.remove('show'), ms||2600); }
+
+function finishBreath(){
+  const c = S.cur;
+  const sync = c.total > 0 ? c.good / c.total : 0;
+  S.breaths.push({sync, touched:c.touched});
+  S.cur = {good:0, total:0, touched:false};
+  const n = S.breaths.length;
+  const overall = mean(S.breaths.map(b=>b.sync));
+  $('hSync').textContent = Math.round(overall*100)+'%';
+  // praise or a gentle pull back
+  const bad = !S.breaths[n-1].touched || sync < .5;
+  const badPrev = n >= 2 && (!S.breaths[n-2].touched || S.breaths[n-2].sync < .5);
+  if(bad && (badPrev || !S.breaths[n-1].touched) && S.t - S.lastNudgeAt > 18){
+    S.nudges++; S.lastNudgeAt = S.t; flashNudge(NUDGES[(S.nudges-1) % NUDGES.length], 3200);
+  } else if(sync >= .85 && n % 3 === 0){
+    flashNudge(PRAISE[Math.floor(Math.random()*PRAISE.length)], 1800);
+  }
+}
+const mean = a => a.length ? a.reduce((s,x)=>s+x,0)/a.length : 0;
+
+function frame(ts){
+  const dt = S.last ? Math.min(0.05, (ts - S.last)/1000) : 0; S.last = ts;
+  const total = minutes*60;
+  if(!S.paused && S.phase==='play'){
+    S.t += dt;
+    const bi = Math.floor(S.t / CYCLE);
+    if(bi > S.breathIdx){ finishBreath(); S.breathIdx = bi; }
+    const st = breathState(S.t);
+    if(st.i !== S.phaseIdx){
+      S.phaseIdx = st.i; buzz(st.i===2 ? 35 : 15);
+      $('cueBig').textContent = st.ph.big; $('cueAct').textContent = st.ph.act;
+    }
+    updateThumb();
+    // score sync, skipping a short grace window after each phase change
+    if(st.into >= GRACE){ S.cur.total += dt; if(S.down === st.ph.hold) S.cur.good += dt; }
+    $('hBreath').textContent = Math.min(bi+1, total/CYCLE);
+    $('hTime').textContent = fmt(total - S.t);
+    if(S.t >= total){ end(true); }
+  }
+  const st = breathState(S.t);
+  draw(S.phase==='play' ? st.level : 0, ts/1000);
+  setSurf(st.level);
+  raf = requestAnimationFrame(frame);
+}
+
+function start(){
+  const pre = S.pre; reset(); S.pre = pre; S.phase = 'play';
+  initAudio(); show('play'); resize();
+  $('hBreath').textContent = 1; $('hSync').textContent = '–'; $('hTime').textContent = fmt(minutes*60);
+  $('cueBig').textContent = 'Breathe in through your nose'; $('cueAct').textContent = 'Thumb down';
+  overlay.innerHTML = '<h2>Get comfortable.</h2><p>When the tide starts rising, hold your thumb on the water and breathe in.</p><p class="muted" id="count">3</p>';
+  overlay.hidden = false;
+  let c = 3;
+  const tick = setInterval(()=>{ c--; const el = $('count'); if(el) el.textContent = c; if(c<=0){ clearInterval(tick); overlay.hidden = true; S.paused = false; S.last = 0; } }, 1000);
+  cancelAnimationFrame(raf); raf = requestAnimationFrame(frame);
+}
+
+function end(complete){
+  if(S.ended) return; S.ended = true;
+  if(S.cur.total > 2) finishBreath();
+  S.phase = 'done'; S.paused = true; S.complete = complete;
+  setSurf(0);
+  overlay.innerHTML = '<h2>'+(complete ? 'The tide is out.' : 'Ending here.')+'</h2><p>Take one more normal breath before you go.</p>';
+  overlay.hidden = false;
+  setTimeout(()=>{
+    overlay.hidden = true; cancelAnimationFrame(raf);
+    S.post = null; $('seeBtn').disabled = true;
+    buildFeel($('feelPost'), v=>{ S.post = v; $('seeBtn').disabled = false; });
+    show('after');
+  }, 2200);
+}
+
+function results(){
+  show('results');
+  const n = S.breaths.length;
+  const sync = mean(S.breaths.map(b=>b.sync));
+  let run = 0, best = 0; S.breaths.forEach(b=>{ run = b.sync >= .8 ? run+1 : 0; best = Math.max(best, run); });
+  const mins = S.t/60;
+  $('rMin').textContent = mins >= 1 ? mins.toFixed(1).replace(/\.0$/,'') : '<1';
+  $('rBreaths').textContent = n; $('rSync').textContent = Math.round(sync*100)+'%'; $('rRun').textContent = best;
+  $('rHead').textContent = sync >= .85 ? 'Right with the tide.' : sync >= .65 ? 'Nicely done.' : 'You showed up and breathed.';
+  let f = 'You said you feel '+FEELS[S.post-1].toLowerCase()+'.';
+  if(S.pre){
+    const d = S.post - S.pre;
+    f = 'You started at '+FEELS[S.pre-1].toLowerCase()+' and ended at '+FEELS[S.post-1].toLowerCase()+'. ';
+    f += d>0 ? 'That is '+d+' step'+(d>1?'s':'')+' calmer.' : d<0 ? 'A bit more tense than before. That happens. A short walk may help too.' : 'No change this time.';
+  }
+  $('rFeel').textContent = f;
+  const bars = $('rBars'); bars.innerHTML = '';
+  S.breaths.forEach(b=>{ const i = document.createElement('i'); i.style.height = Math.max(4, b.sync*100)+'%'; if(b.sync >= .8) i.className = 'ok'; bars.appendChild(i); });
+  $('rNote').textContent = S.complete && minutes===5
+    ? 'You did the full 5 minutes, the same daily length used in the breathing study.'
+    : (S.complete ? 'You finished a '+minutes+'-minute session. The study used 5 minutes a day.' : 'You ended early. Even a few slow breaths count.');
+  saveHist(sync);
+}
+
+function saveHist(sync){
+  let h = [];
+  try{ h = JSON.parse(localStorage.getItem('tidebreath-hist')||'[]'); }catch(e){ h = []; }
+  h.unshift({d:new Date().toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}),
+    m:(S.t/60).toFixed(1), s:Math.round(sync*100), pre:S.pre, post:S.post});
+  h = h.slice(0,5);
+  try{ localStorage.setItem('tidebreath-hist', JSON.stringify(h)); }catch(e){}
+  if(h.length > 1){
+    $('histWrap').hidden = false;
+    $('hist').innerHTML = h.map(x=>'<div><span>'+x.d+'</span><span>'+x.m+' min · '+x.s+'% sync · '+(x.pre?x.pre+'→':'')+x.post+'/5</span></div>').join('');
+  } else $('histWrap').hidden = true;
+}
+
+$('startBtn').onclick = start;
+$('skipBtn').onclick = ()=>{ S.pre = null; start(); };
+$('stopBtn').onclick = ()=>{ if(S.phase==='play') end(false); };
+$('seeBtn').onclick = results;
+$('againBtn').onclick = ()=>{ S.pre = null; reset(); buildFeel($('feelPre'), v=>{ S.pre=v; }); show('intro'); };
+window.addEventListener('resize', ()=>{ if(S.phase==='play') resize(); });
+document.addEventListener('visibilitychange', ()=>{
+  if(S.phase!=='play' || overlay.hidden===false && S.paused) return;
+  if(document.hidden){ S.paused = true; setDown(false); setSurf(0); }
+  else {
+    overlay.innerHTML = '<h2>Paused</h2><p>The tide waited for you.</p><button class="btn" id="resumeBtn">Keep breathing</button>';
+    overlay.hidden = false;
+    $('resumeBtn').onclick = ()=>{ overlay.hidden = true; S.paused = false; S.last = 0; };
+  }
+});
+})();
+</script>
+</body>
+</html>
